@@ -147,6 +147,7 @@ class HIST(nn.Module):
         output_indi = self.fc_indi(output_indi)
         output_indi = self.leaky_relu(output_indi)
         pred_indi = self.fc_out_indi(output_indi).squeeze()
+        
         # Stock Trend Prediction
         all_info = output_ps + output_hs + output_indi
         pred_all = self.fc_out(all_info).squeeze()
