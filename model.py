@@ -143,6 +143,7 @@ class HIST(nn.Module):
 
         # Individual Information Module
         individual_info  = x_hidden - p_shared_back - h_shared_back
+        #把多余的信息弄掉 剩下的就是个人信息
         output_indi = individual_info
         output_indi = self.fc_indi(output_indi)
         output_indi = self.leaky_relu(output_indi)
