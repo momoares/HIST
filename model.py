@@ -32,6 +32,7 @@ class HIST(nn.Module):
         self.d_feat = d_feat
         self.hidden_size = hidden_size
 
+        #stock feature encoder 双层GRU 返回X^{t,0}(时间t 所有股票的数据，一行表示一个股票）
         self.rnn = nn.GRU(
                 input_size=d_feat,
                 hidden_size=hidden_size,
