@@ -67,7 +67,9 @@ class HIST(nn.Module):
         self.fc_out_indi = nn.Linear(hidden_size, 1)
         self.fc_out = nn.Linear(hidden_size, 1)
         self.K = K
-        
+
+    
+        #计算余弦相似度 隐藏信息模块 共享信息模块都使用到了
     def cal_cos_similarity(self, x, y): # the 2nd dimension of x and y are the same
         xy = x.mm(torch.t(y))
         x_norm = torch.sqrt(torch.sum(x*x, dim =1)).reshape(-1, 1)
@@ -75,7 +77,7 @@ class HIST(nn.Module):
         cos_similarity = xy/x_norm.mm(torch.t(y_norm))
         cos_similarity[cos_similarity != cos_similarity] = 0
         return cos_similarity
-
+#前向传播
     def forward(self, x, concept_matrix, market_value):
         device = torch.device(torch.get_device(x))
         x_hidden = x.reshape(len(x), self.d_feat, -1) # [N, F, T]      
@@ -86,7 +88,7 @@ class HIST(nn.Module):
         # Predefined Concept Module
        
         market_value_matrix = market_value.reshape(market_value.shape[0], 1).repeat(1, concept_matrix.shape[1])
-        stock_to_concept = concept_matrix * market_value_matrix
+        stock_to_concept = concept_matrix * market_value_matrix#初始化概念值为股票值（？）这需要concept=I
         
         stock_to_concept_sum = torch.sum(stock_to_concept, 0).reshape(1, -1).repeat(stock_to_concept.shape[0], 1)
         stock_to_concept_sum = stock_to_concept_sum.mul(concept_matrix)
@@ -104,6 +106,7 @@ class HIST(nn.Module):
         concept_to_stock = cal_cos_similarity(x_hidden, hidden) 
         concept_to_stock = self.softmax_t2s(concept_to_stock)
 
+        #计算共享信息
         p_shared_info = concept_to_stock.mm(hidden)
         p_shared_info = self.fc_ps(p_shared_info)
 
@@ -113,7 +116,7 @@ class HIST(nn.Module):
 
         pred_ps = self.fc_out_ps(output_ps).squeeze()
         
-        # Hidden Concept Module
+        # Hidden Concept Module（所以是反过来了？先算共享再算hidden？）
         h_shared_info = x_hidden - p_shared_back
         hidden = h_shared_info
         h_stock_to_concept = cal_cos_similarity(h_shared_info, hidden)
