@@ -43,6 +43,8 @@ class HIST(nn.Module):
 
         self.fc_ps = nn.Linear(hidden_size, hidden_size)
         torch.nn.init.xavier_uniform_(self.fc_ps.weight)
+        #定义层的形状并初始化权重
+        
         self.fc_hs = nn.Linear(hidden_size, hidden_size)
         torch.nn.init.xavier_uniform_(self.fc_hs.weight)
 
