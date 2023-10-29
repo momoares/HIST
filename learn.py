@@ -62,7 +62,11 @@ def get_model(model_name):
 
     raise ValueError('unknown model name `%s`'%model_name)
 
-
+'''
+average_params函数接受一组字典作为输入，假定它们具有相同的键，
+然后计算每个键的值的平均值，并返回结果的平均字典。如果输入列表只包含一个参数集，
+它将直接返回该参数集。如果参数具有不同的键，它将引发ValueError异常。
+'''
 def average_params(params_list):
     assert isinstance(params_list, (tuple, list, collections.deque))
     n = len(params_list)
@@ -83,13 +87,16 @@ def average_params(params_list):
     return new_params
 
 
-
+#预测和实际值的比较
 def loss_fn(pred, label, args):
     mask = ~torch.isnan(label)
+    #这个 mask 被用于筛选掉 label 中不是 NaN（非数字）的元素。
     return mse(pred[mask], label[mask])
 
 
 global_log_file = None
+
+#输出时间 在每个输出之前打印时间
 def pprint(*args):
     # print with UTC+8 time
     time = '['+str(datetime.datetime.utcnow()+
@@ -103,6 +110,7 @@ def pprint(*args):
 
 
 global_step = -1
+
 def train_epoch(epoch, model, optimizer, train_loader, writer, args, stock2concept_matrix = None):
 
     global global_step
@@ -112,16 +120,18 @@ def train_epoch(epoch, model, optimizer, train_loader, writer, args, stock2conce
     for i, slc in tqdm(train_loader.iter_batch(), total=train_loader.batch_length):
         global_step += 1
         feature, label, market_value , stock_index, _ = train_loader.get(slc)
+
+        #根据模型不同输入不同
         if args.model_name == 'HIST':
             pred = model(feature, stock2concept_matrix[stock_index], market_value)
         else:
             pred = model(feature)
-        loss = loss_fn(pred, label, args)
+        loss = loss_fn(pred, label, args)#lossfn 计算loss的函数
 
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_value_(model.parameters(), 3.)
-        optimizer.step()
+        optimizer.zero_grad()#清空模型参数的梯度
+        loss.backward()#backwards 计算梯度
+        torch.nn.utils.clip_grad_value_(model.parameters(), 3.)#裁剪梯度 防止爆炸
+        optimizer.step()#更新模型参数
 
 
 def test_epoch(epoch, model, test_loader, writer, args, stock2concept_matrix=None, prefix='Test'):
@@ -134,17 +144,23 @@ def test_epoch(epoch, model, test_loader, writer, args, stock2concept_matrix=Non
     for i, slc in tqdm(test_loader.iter_daily(), desc=prefix, total=test_loader.daily_length):
 
         feature, label, market_value, stock_index, index = test_loader.get(slc)
-
-        with torch.no_grad():
+        #从测试数据加载器 test_loader 中获取一个数据切片，包括
+        #feature（特征）、label（标签）、market_value（市值）、stock_index（股票索引）、以及 index。
+        
+        with torch.no_grad():#以确保在评估过程中不会进行梯度计算。
             if args.model_name == 'HIST':
                 pred = model(feature, stock2concept_matrix[stock_index], market_value)
             else:
                 pred = model(feature)
+
+            #计算损失值并把损失值存到列表中
             loss = loss_fn(pred, label, args)
             preds.append(pd.DataFrame({ 'score': pred.cpu().numpy(), 'label': label.cpu().numpy(), }, index=index))
 
         losses.append(loss.item())
-    #evaluate
+
+    
+    #evaluate 计算各种评分
     preds = pd.concat(preds, axis=0)
     precision, recall, ic, rank_ic = metric_fn(preds)
     scores = ic
@@ -158,21 +174,29 @@ def test_epoch(epoch, model, test_loader, writer, args, stock2concept_matrix=Non
 
     return np.mean(losses), scores, precision, recall, ic, rank_ic
 
+
+#使用训练好的模型进行推断（inference）或预测
 def inference(model, data_loader, stock2concept_matrix=None):
 
+    # model.eval() 来禁用模型中的一些训练相关特性，以确保在推断过程中不会进行梯度计算
     model.eval()
 
     preds = []
     for i, slc in tqdm(data_loader.iter_daily(), total=data_loader.daily_length):
-
+        #数据进行了切片
+        #data_loader.iter_daily() 用于获取每个数据切片
+        #，然后通过 data_loader.get(slc) 获取每个切片的数据。
+        
         feature, label, market_value, stock_index, index = data_loader.get(slc)
         with torch.no_grad():
             if args.model_name == 'HIST':
                 pred = model(feature, stock2concept_matrix[stock_index], market_value)
+                #hist需要额外的输入数据
             else:
                 pred = model(feature)
+                
             preds.append(pd.DataFrame({ 'score': pred.cpu().numpy(), 'label': label.cpu().numpy(),  }, index=index))
-
+            #preds 列表包含了每个数据切片的模型预测结果和标签，可以用于后续的分析、可视化或存储。
     preds = pd.concat(preds, axis=0)
     return preds
 
