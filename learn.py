@@ -200,7 +200,8 @@ def inference(model, data_loader, stock2concept_matrix=None):
     preds = pd.concat(preds, axis=0)
     return preds
 
-
+#加载数据
+#总的来说，这个函数负责设置用于训练和评估机器学习模型的数据流水线，使用金融或时间序列数据。它很可能是更大代码库的一部分，其中还包括了机器学习模型和训练循环等其他组件。
 def create_loaders(args):
 
     start_time = datetime.datetime.strptime(args.train_start_date, '%Y-%m-%d')
@@ -400,7 +401,30 @@ def main(args):
         pprint (('Precision@%d: %.4f (%.4f)')%(N[k], precision_mean[k], precision_std[k]))
 
     pprint('finished.')
+'''
+训练循环部分：
 
+如果验证集的性能 (val_score) 比历史最佳性能 (best_score) 更好，更新 best_score、stop_round（停止轮数）、best_epoch（最佳时代） 和 best_param（最佳模型参数）。
+否则，递增 stop_round，如果 stop_round 达到指定的早期停止轮数 (args.early_stop)，则打印 "early stop" 并跳出循环。
+打印最佳性能 (best_score) 和其出现的时代 (best_epoch)。
+
+加载最佳模型参数并将其保存到文件中。
+
+进行模型的推断操作，对训练、验证和测试数据集进行预测，然后计算一些性能指标，如精度、召回率、信息系数 (IC) 和排名信息系数 (Rank IC)。这些指标会被记录在名为 res 的字典中。
+
+将预测结果保存到文件（'pred.pkl' 文件中），并打印每个数据集（train、valid、test）的 IC 和 Rank IC。
+
+将性能指标和参数配置记录到 TensorBoard 的事件文件中，以便进行可视化。
+
+创建一个包含实验信息的字典 info，包括参数配置、最佳时代和性能指标。
+
+计算 IC 和 Rank IC 的平均值和标准差，并将它们打印出来。
+
+计算 Precision@N 指标（N=1, 3, 5, 10, 20, 30, 50, 100）的平均值和标准差，并将它们打印出来。
+
+最后，打印 "finished" 表示训练和评估过程已完成。
+
+'''
 
 class ParseConfigFile(argparse.Action):
 
