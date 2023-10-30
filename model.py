@@ -90,9 +90,14 @@ class HIST(nn.Module):
         # Predefined Concept Module
        
         market_value_matrix = market_value.reshape(market_value.shape[0], 1).repeat(1, concept_matrix.shape[1])
-        stock_to_concept = concept_matrix * market_value_matrix#初始化概念值为股票值（？）这需要concept=I
+        #先导入股票类*时间的矩阵 这样好算后续权重
         
+        stock_to_concept = concept_matrix * market_value_matrix
+        #通过股票加权得到概念的初始定义 得到的应该是各个概念横着一条条的数据
+
+        #进行修正（预定义概念不全or 概念影响力很弱）
         stock_to_concept_sum = torch.sum(stock_to_concept, 0).reshape(1, -1).repeat(stock_to_concept.shape[0], 1)
+        #这两个操作的组合将 stock_to_concept 中的每列求和，并将结果复制到一个新的张量 stock_to_concept_sum 中，使得每行的值都等于原始 stock_to_concept 中相应列的总和值。
         stock_to_concept_sum = stock_to_concept_sum.mul(concept_matrix)
 
         stock_to_concept_sum = stock_to_concept_sum + (torch.ones(stock_to_concept.shape[0], stock_to_concept.shape[1]).to(device))
@@ -108,7 +113,7 @@ class HIST(nn.Module):
         concept_to_stock = cal_cos_similarity(x_hidden, hidden) 
         concept_to_stock = self.softmax_t2s(concept_to_stock)
 
-        #计算共享信息
+        #计算共享信息(share 和 hidden是不是同一个东西？）
         p_shared_info = concept_to_stock.mm(hidden)
         p_shared_info = self.fc_ps(p_shared_info)
 
