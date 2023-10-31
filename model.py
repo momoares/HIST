@@ -98,20 +98,21 @@ class HIST(nn.Module):
         #进行修正（预定义概念不全or 概念影响力很弱）
         stock_to_concept_sum = torch.sum(stock_to_concept, 0).reshape(1, -1).repeat(stock_to_concept.shape[0], 1)
         #这两个操作的组合将 stock_to_concept 中的每列求和，并将结果复制到一个新的张量 stock_to_concept_sum 中，使得每行的值都等于原始 stock_to_concept 中相应列的总和值。
+        #.mm 表示矩阵相乘
         stock_to_concept_sum = stock_to_concept_sum.mul(concept_matrix)
-
         stock_to_concept_sum = stock_to_concept_sum + (torch.ones(stock_to_concept.shape[0], stock_to_concept.shape[1]).to(device))
         stock_to_concept = stock_to_concept / stock_to_concept_sum
-        hidden = torch.t(stock_to_concept).mm(x_hidden)
         
+        hidden = torch.t(stock_to_concept).mm(x_hidden)
         hidden = hidden[hidden.sum(1)!=0]
         stock_to_concept = x_hidden.mm(torch.t(hidden))
+        
         # stock_to_concept = cal_cos_similarity(x_hidden, hidden)
         stock_to_concept = self.softmax_s2t(stock_to_concept)
         hidden = torch.t(stock_to_concept).mm(x_hidden)
         
         concept_to_stock = cal_cos_similarity(x_hidden, hidden) 
-        concept_to_stock = self.softmax_t2s(concept_to_stock)
+        concept_to_stock = self.softmax_t2s(concept_to_stock)#计算alpha权重 $alpha^{t,1}_{k i}$
 
         #计算共享信息(share 和 hidden是不是同一个东西？）
         p_shared_info = concept_to_stock.mm(hidden)
