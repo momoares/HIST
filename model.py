@@ -109,33 +109,38 @@ class HIST(nn.Module):
         
         # stock_to_concept = cal_cos_similarity(x_hidden, hidden)
         stock_to_concept = self.softmax_s2t(stock_to_concept)
-        hidden = torch.t(stock_to_concept).mm(x_hidden)
         
-        concept_to_stock = cal_cos_similarity(x_hidden, hidden) 
-        concept_to_stock = self.softmax_t2s(concept_to_stock)#计算alpha权重 $alpha^{t,1}_{k i}$
-
-        #计算共享信息(share 和 hidden是不是同一个东西？）
+        #hidden 应该是e_k^{t,0}对应的位置 简单加权得到的predefine
+        hidden = torch.t(stock_to_concept).mm(x_hidden)#hidden 应该是e_k^{t,0}对应的位置 简单加权得到的predefine
+        
+        concept_to_stock = cal_cos_similarity(x_hidden, hidden) #返回到余弦相乘的权重上
+        concept_to_stock = self.softmax_t2s(concept_to_stock)#取指数权重化 计算alpha权重 $alpha^{t,1}_{k i}$
+        #concept_to_stock 暂时存的是修正过的预定义概念权重
+        
+        #修正过的预定义权重*预定义embedd 
         p_shared_info = concept_to_stock.mm(hidden)
-        p_shared_info = self.fc_ps(p_shared_info)
+        p_shared_info = self.fc_ps(p_shared_info)#全连接线性层？
 
-        p_shared_back = self.fc_ps_back(p_shared_info)
+        p_shared_back = self.fc_ps_back(p_shared_info)#再加一个全连接
         output_ps = self.fc_ps_fore(p_shared_info)
-        output_ps = self.leaky_relu(output_ps)
+        output_ps = self.leaky_relu(output_ps)#大概对应公式（11）？
 
         pred_ps = self.fc_out_ps(output_ps).squeeze()
         
-        # Hidden Concept Module（所以是反过来了？先算共享再算hidden？）
-        h_shared_info = x_hidden - p_shared_back
-        hidden = h_shared_info
-        h_stock_to_concept = cal_cos_similarity(h_shared_info, hidden)
+        # Hidden Concept Module
+        h_shared_info = x_hidden - p_shared_back#GRUembed后的概念（x_hidden 减去预定义中的共享概念）
+        hidden = h_shared_info#此时hidden存储为hidden的共享info
+        h_stock_to_concept = cal_cos_similarity(h_shared_info, hidden)#计算共享信息之间的权重
 
         dim = h_stock_to_concept.shape[0]
         diag = h_stock_to_concept.diagonal(0)
+        
         h_stock_to_concept = h_stock_to_concept * (torch.ones(dim, dim) - torch.eye(dim)).to(device)
         # row = torch.linspace(0,dim-1,dim).to(device).long()
         # column = h_stock_to_concept.argmax(1)
         row = torch.linspace(0, dim-1, dim).reshape([-1, 1]).repeat(1, self.K).reshape(1, -1).long().to(device)
         column = torch.topk(h_stock_to_concept, self.K, dim = 1)[1].reshape(1, -1)
+        
         mask = torch.zeros([h_stock_to_concept.shape[0], h_stock_to_concept.shape[1]], device = h_stock_to_concept.device)
         mask[row, column] = 1
         h_stock_to_concept = h_stock_to_concept * mask
@@ -154,8 +159,9 @@ class HIST(nn.Module):
         pred_hs = self.fc_out_hs(output_hs).squeeze()
 
         # Individual Information Module
-        individual_info  = x_hidden - p_shared_back - h_shared_back
+        individual_info  = x_hidden - p_shared_back - h_shared_back#
         #把多余的信息弄掉 剩下的就是个人信息
+        #个人信息直接套一个全连接
         output_indi = individual_info
         output_indi = self.fc_indi(output_indi)
         output_indi = self.leaky_relu(output_indi)
